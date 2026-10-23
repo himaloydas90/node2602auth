@@ -38,6 +38,26 @@ const userSchema =  new Schema({
     dateOfBirth: {
         type: Date,
         default: null
+    },
+    isEmailVerified:{
+        type: Boolean,
+        default: false
+    },
+    emailVerificationToken:{
+        type: String,
+        select: false
+    },
+    emailVerificationTokenExpires:{
+        type: Date,
+        select:true
+    },
+    passwordResetToken:{
+        type: String,
+        select: false
+    },
+    passwordResetExpiresToken:{
+        type: String,
+        select: false
     }
 }, {
     timestamps: true

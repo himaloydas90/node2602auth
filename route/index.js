@@ -1,6 +1,6 @@
 const express = require("express");
 const router = express.Router();
-const api = process.env.BASE_URL || '/api/v1';
+const api = process.env.BASE_URL || '/node-api/v1';
 const apiRoute = require('./api')
 
 router.use(api,apiRoute)
