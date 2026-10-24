@@ -178,7 +178,7 @@ const registrationController = asyncHandler(async (req, res) => {
 
 
 const verifyEmail = asyncHandler(async (req, res) => {
-  const token = req.body.token || req.query.token;
+  const token = req.body?.token || req.query.token;
 
   if (!token) {
     return res.status(400).json({
@@ -197,7 +197,7 @@ const verifyEmail = asyncHandler(async (req, res) => {
     });
   }
 
-  const user = await User.findById(decoded.userId);
+  const user = await User.findById(decoded.user._Id);
   if (!user) {
     return res.status(404).json({
       success: false,
