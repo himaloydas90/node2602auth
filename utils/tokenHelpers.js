@@ -13,7 +13,27 @@ const generateAccessToken = (user) => {
     email: user.email,
   };
   return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_ACCESS_EXPIRE || "15m",
+    expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || "15m",
   });
 };
-module.exports = {generateSecureToken,generateAccessToken,hashToken}
+
+const generateRefreshToken = (user)=>{
+  const payload ={id:user._id};
+  return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
+    expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
+  });
+};
+const verifyAccessToken = (token) =>
+  jwt.verify(token, process.env.JWT_SECRET);
+
+const verifyRefreshToken = (token) =>
+  jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+
+
+module.exports = {
+  generateSecureToken,
+  generateAccessToken,
+  generateRefreshToken,
+  verifyAccessToken,
+  verifyRefreshToken,
+  hashToken}

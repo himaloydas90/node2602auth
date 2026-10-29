@@ -4,7 +4,7 @@ const {
     Schema
 } = mongoose;
 
-const userSchema =  new Schema({
+const userSchema = new Schema({
     username: {
         type: String,
         required: true,
@@ -39,23 +39,23 @@ const userSchema =  new Schema({
         type: Date,
         default: null
     },
-    isEmailVerified:{
+    isEmailVerified: {
         type: Boolean,
         default: false
     },
-    emailVerificationToken:{
+    emailVerificationToken: {
         type: String,
         select: false
     },
-    emailVerificationTokenExpires:{
+    emailVerificationTokenExpires: {
         type: Date,
-        select:true
+        select: true
     },
-    passwordResetToken:{
+    passwordResetToken: {
         type: String,
         select: false
     },
-    passwordResetExpiresToken:{
+    passwordResetExpiresToken: {
         type: String,
         select: false
     }
@@ -63,10 +63,10 @@ const userSchema =  new Schema({
     timestamps: true
 }, );
 userSchema.pre('save', async function () {
-    if(!this.isModified('password')){
-        return 
+    if (!this.isModified('password')) {
+        return
     }
-    this.password = await bcrypt.hash(this.password,10);
+    this.password = await bcrypt.hash(this.password, 10);
 });
 userSchema.methods.comparePassword = async function (candidatePassword) {
     return bcrypt.compare(candidatePassword, this.password);

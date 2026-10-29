@@ -1,10 +1,30 @@
 const userModel = require('../model/userModel');
 const User = require('../model/userModel');
-const { sendVerificationEmail } = require('../utils/sendEmail');
-const {hashToken, generateSecureToken} = require('../utils/tokenHelpers');
+const {
+    sendVerificationEmail
+} = require('../utils/sendEmail');
+const {
+    hashToken,
+    generateSecureToken,
+    generateAccessToken,
+    generateRefreshToken
+} = require('../utils/tokenHelpers');
 // const bcrypt = require('bcrypt');
 const emailRegex = /^[a-zA-Z0-9.\_%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 const VERIFICATION_EXPIRE_MS = Number(process.env.VERIFICATION_EXPIRE_MS) || 24 * 60 * 60 * 1000;
+
+const issueAuthTokens = async (user) => {
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    user.refreshToken = hashToken(refreshToken);
+    await user.save({
+        validateBeforeSave: false
+    });
+    return {
+        accessToken,
+        refreshToken
+    };
+};
 
 const registrationController = async (req, res) => {
     try {
@@ -120,49 +140,148 @@ const registrationController = async (req, res) => {
 };
 
 const verifyEmailController = async (req, res) => {
+    try {
+        const {
+            token
+        } = req.params;
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                message: "Verification token is required",
+            });
+        }
+
+        const hashed = hashToken(token);
+        const user = await User
+            .findOne({
+                emailVerificationToken: hashed,
+                emailVerificationTokenExpires: {
+                    $gt: Date.now()
+                },
+            })
+            .select("+emailVerificationToken +emailVerificationTokenExpires");
+
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid or expired verification token",
+            });
+        }
+
+        user.isEmailVerified = true;
+        user.emailVerificationToken = undefined;
+        user.emailVerificationTokenExpires = undefined;
+        await user.save({
+            validateBeforeSave: false
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Email verified successfully. You can log in now.",
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: "Email verification failed",
+        });
+    }
+};
+
+const loginController = async (req, res) => {
+    try {
+        const {
+            email,
+            password
+        } = req.body;
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "Email and password are required",
+            });
+        }
+
+        const user = await userModel
+            .findOne({
+                email
+            })
+            .select("+password +refreshToken")
+        if (!user || !(await user.comparePassword(password))) {
+            return res.status(401).json({
+                success: false,
+                message: "Invalid email or password",
+            });
+        }
+        if (!user.isEmailVerified) {
+            return res.status(403).json({
+                success: false,
+                message: "Please verify your email before logging in",
+            });
+        };
+        const {
+            accessToken,
+            refreshToken
+        } = await issueAuthTokens(user);
+        return res.status(200).json({
+            success: true,
+            message: "Login successful",
+            data: {
+                user: {
+                    id: user._id,
+                    username: user.username,
+                    email: user.email,
+                    profilePicture: user.profilePicture,
+                    address: user.address,
+                    phone: user.phone,
+                    gender: user.gender,
+                    dob: user.dob,
+                    isEmailVerified: user.isEmailVerified,
+                },
+                accessToken,
+                refreshToken,
+            },
+        });
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({
+            success: false,
+            message: "Login failed",
+        });
+    };
+};
+const getMeController = async (req, res) => {
   try {
-    const { token } = req.params;
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: "Verification token is required",
-      });
-    }
-
-    const hashed = hashToken(token);
-    const user = await User
-      .findOne({
-        emailVerificationToken: hashed,
-        emailVerificationTokenExpires: { $gt: Date.now() },
-      })
-      .select("+emailVerificationToken +emailVerificationTokenExpires");
-
+    const user = await userModel.findById(req.user.id);
     if (!user) {
-      return res.status(400).json({
+      return res.status(404).json({
         success: false,
-        message: "Invalid or expired verification token",
+        message: "User not found",
       });
     }
-
-    user.isEmailVerified = true;
-    user.emailVerificationToken = undefined;
-    user.emailVerificationTokenExpires = undefined;
-    await user.save({ validateBeforeSave: false });
-
     return res.status(200).json({
       success: true,
-      message: "Email verified successfully. You can log in now.",
+      data: {
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        isEmailVerified: user.isEmailVerified,
+        profilePicture: user.profilePicture,
+        address: user.address,
+        phone: user.phone,
+        gender: user.gender,
+        dob: user.dob,
+        role: user.role,
+      },
     });
   } catch (error) {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: "Email verification failed",
+      message: "Could not fetch profile",
     });
   }
 };
-
-
 
 
 const imageUpload = async (req, res) => {
@@ -184,7 +303,10 @@ const imageUpload = async (req, res) => {
 };
 
 module.exports = {
+    issueAuthTokens,
     registrationController,
-    imageUpload,
-    verifyEmailController
+    verifyEmailController,
+    loginController,
+    getMeController,
+    imageUpload
 };
