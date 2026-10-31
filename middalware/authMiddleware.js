@@ -33,14 +33,27 @@ const protect = async (req, res, next) => {
     });
   }
 };
-const isEmailVerified = (req, res, next) => {
-  if(!req.user.isEmailVerified){
+
+const requiedAdmin = (req, res, next) => {
+  if(req.user.role !== "admin"){
     return res.status(403).json({
       success: false,
-      message: "Please Verify your email first."
+      message: "Admin access required."
     })
   }
   next()
-}
+};
+// const isEmailVerified = (req, res, next) => {
+//   if(!req.user.isEmailVerified){
+//     return res.status(403).json({
+//       success: false,
+//       message: "Please Verify your email first."
+//     })
+//   }
+//   next()
+// };
 
-module.exports = { protect, isEmailVerified };
+module.exports = { 
+  protect,
+  // isEmailVerified,
+  requiedAdmin };

@@ -39,6 +39,11 @@ const userSchema = new Schema({
         type: Date,
         default: null
     },
+    role: {
+      type: String,
+      enum: ["admin", "employee", "user"],
+      default: "user"
+    },
     isEmailVerified: {
         type: Boolean,
         default: false

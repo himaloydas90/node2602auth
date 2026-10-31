@@ -36,7 +36,8 @@ const registrationController = async (req, res) => {
             address,
             phone,
             gender,
-            dateOfBirth
+            dateOfBirth,
+            role
         } = req.body;
 
         // Validate username existence and length
@@ -104,6 +105,7 @@ const registrationController = async (req, res) => {
             phone: phone || null,
             gender: gender || null,
             dateOfBirth: dateOfBirth || null,
+            role:role,
             emailVerificationToken: hashToken(verificationToken),
             emailVerificationTokenExpires: new Date(Date.now() + VERIFICATION_EXPIRE_MS),
         });
@@ -187,6 +189,59 @@ const verifyEmailController = async (req, res) => {
         });
     }
 };
+const reVerificationController = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    const user = await userModel
+      .findOne({ email })
+      .select("+emailVerificationToken +emailVerificationTokenExpires");
+
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message:
+          "If that email is registered, a verification link has been sent",
+      });
+    }
+    if (user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is already verified",
+      });
+    }
+
+    const reVerificationToken = generateSecureToken();
+    user.emailVerificationToken = hashToken(reVerificationToken);
+    user.emailVerificationTokenExpires = new Date(
+      Date.now() + VERIFICATION_EXPIRE_MS,
+    );
+    await user.save({ validateBeforeSave: false });
+
+    await sendVerificationEmail(
+      user.email,
+      user.username,
+      reVerificationToken,
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Verification email sent",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Could not send verification email",
+    });
+  }
+};
 
 const loginController = async (req, res) => {
     try {
@@ -205,7 +260,7 @@ const loginController = async (req, res) => {
             .findOne({
                 email
             })
-            .select("+password +refreshToken")
+            .select("+password")
         if (!user || !(await user.comparePassword(password))) {
             return res.status(401).json({
                 success: false,
@@ -275,7 +330,7 @@ const getMeController = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
+     console.error(error);
     return res.status(500).json({
       success: false,
       message: "Could not fetch profile",
@@ -306,6 +361,7 @@ module.exports = {
     issueAuthTokens,
     registrationController,
     verifyEmailController,
+    reVerificationController,
     loginController,
     getMeController,
     imageUpload

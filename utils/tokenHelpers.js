@@ -1,7 +1,7 @@
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 
-const hashToken = (token) => 
+const hashToken = (token) =>
   crypto.createHash("sha256").update(token).digest("hex");
 
 const generateSecureToken = () => crypto.randomBytes(32).toString("hex");
@@ -17,8 +17,10 @@ const generateAccessToken = (user) => {
   });
 };
 
-const generateRefreshToken = (user)=>{
-  const payload ={id:user._id};
+const generateRefreshToken = (user) => {
+  const payload = {
+    id: user._id
+  };
   return jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || "7d",
   });
@@ -36,4 +38,5 @@ module.exports = {
   generateRefreshToken,
   verifyAccessToken,
   verifyRefreshToken,
-  hashToken}
+  hashToken
+}
