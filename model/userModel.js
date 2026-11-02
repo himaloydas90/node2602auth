@@ -18,7 +18,7 @@ const userSchema = new Schema({
         type: String,
         required: true
     },
-    profileImage: {
+    profilePicture: {
         type: String,
         default: null
     },
@@ -43,6 +43,12 @@ const userSchema = new Schema({
       type: String,
       enum: ["admin", "employee", "user"],
       default: "user"
+    },
+    status: {
+        type: Boolean,
+        default: function () {
+            return this.role === "admin" ? true : false;
+        }
     },
     isEmailVerified: {
         type: Boolean,

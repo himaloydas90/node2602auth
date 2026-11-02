@@ -7,7 +7,8 @@ const {
     verifyEmailController,
     loginController,
     getMeController,
-    reVerificationController
+    reVerificationController,
+    updateProfileController
 } = require('../../controller/authController');
 const { protect } = require("../../middalware/authMiddleware");
 const {  loginlimiter } = require("../../middalware/rateLimiter");
@@ -19,7 +20,8 @@ router.get('/verify-email/:token', verifyEmailController);
 router.post('/resend-verification', reVerificationController);
 router.post('/login',loginlimiter, loginController);
 router.get("/me", protect, getMeController);
+router.patch("/profile", protect,upload.single('picture'), updateProfileController);
 
-router.post('/image', upload.single('avatar'), imageUpload);
+router.post('/image', upload.single('picture'), imageUpload);
 
 module.exports = router;

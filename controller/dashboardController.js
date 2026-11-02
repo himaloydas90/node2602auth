@@ -1,7 +1,7 @@
 const userModel = require("../model/userModel");
 
-function formatUser(user){
-  return{
+function formatUser(user) {
+  return {
     id: user._id,
     username: user.username,
     email: user.email,
@@ -22,24 +22,112 @@ const getAllUserController = async (req, res) => {
     const loggedinUserId = req.user.id
     const loggedinUser = await userModel.findById(loggedinUserId)
     const users = await userModel.find({
-      _id: {$ne: loggedinUserId}
+      _id: {
+        $ne: loggedinUserId
+      }
     })
     res.status(200).json({
-        success: true,
-        message: "Users get successfully",
-        data: {
-          users: users.map(formatUser),
-          length: users.length
-        },
-        loggedinuser: loggedinUser
+      success: true,
+      message: "Users get successfully",
+      data: {
+        users: users.map(formatUser),
+        length: users.length
+      },
+      loggedinuser: loggedinUser
     })
   } catch (error) {
-      res.send("catch error")
-    
+    res.status(500).json({
+      success: false,
+      message: "Internal server error"
+    });
+  }
+};
+const getSingleUserController = async (req, res) => {
+  const userId = req.params.id;
+  try {
+    const user = await userModel.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+    res.status(200).json({
+      success: true,
+      message: "User get successfully",
+      data: formatUser(user)
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "user not found",
+      id: userId
+    });
   }
 };
 
+const approveUserController = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const existingUser = await userModel.findById(userId);
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    const newStatus = !existingUser.status;
+    const user = await userModel.findByIdAndUpdate(
+      userId, {
+        status: newStatus
+      }, {
+        returnDocument: 'after',
+        runValidators: true
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: `User status updated successfully`,
+      data: user
+    });
+
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+const deleteUserController = async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const existingUser = await userModel.findById(userId);
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+    await userModel.findByIdAndDelete(userId);
+    return res.status(200).json({
+      success: true,
+      message: "User deleted successfully",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+
+}
 
 module.exports = {
-    getAllUserController
+  getAllUserController,
+  getSingleUserController,
+  approveUserController,
+  deleteUserController
 }

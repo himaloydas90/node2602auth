@@ -105,7 +105,7 @@ const registrationController = async (req, res) => {
             phone: phone || null,
             gender: gender || null,
             dateOfBirth: dateOfBirth || null,
-            role:role,
+            role: role,
             emailVerificationToken: hashToken(verificationToken),
             emailVerificationTokenExpires: new Date(Date.now() + VERIFICATION_EXPIRE_MS),
         });
@@ -190,57 +190,62 @@ const verifyEmailController = async (req, res) => {
     }
 };
 const reVerificationController = async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required",
-      });
+    try {
+        const {
+            email
+        } = req.body;
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: "Email is required",
+            });
+        }
+
+        const user = await userModel
+            .findOne({
+                email
+            })
+            .select("+emailVerificationToken +emailVerificationTokenExpires");
+
+        if (!user) {
+            return res.status(200).json({
+                success: true,
+                message: "If that email is registered, a verification link has been sent",
+            });
+        }
+        if (user.isEmailVerified) {
+            return res.status(400).json({
+                success: false,
+                message: "Email is already verified",
+            });
+        }
+
+        const reVerificationToken = generateSecureToken();
+        user.emailVerificationToken = hashToken(reVerificationToken);
+        user.emailVerificationTokenExpires = new Date(
+            Date.now() + VERIFICATION_EXPIRE_MS,
+        );
+        await user.save({
+            validateBeforeSave: false
+        });
+
+        await sendVerificationEmail(
+            user.email,
+            user.username,
+            reVerificationToken,
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Verification email sent",
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: "Could not send verification email",
+        });
     }
-
-    const user = await userModel
-      .findOne({ email })
-      .select("+emailVerificationToken +emailVerificationTokenExpires");
-
-    if (!user) {
-      return res.status(200).json({
-        success: true,
-        message:
-          "If that email is registered, a verification link has been sent",
-      });
-    }
-    if (user.isEmailVerified) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is already verified",
-      });
-    }
-
-    const reVerificationToken = generateSecureToken();
-    user.emailVerificationToken = hashToken(reVerificationToken);
-    user.emailVerificationTokenExpires = new Date(
-      Date.now() + VERIFICATION_EXPIRE_MS,
-    );
-    await user.save({ validateBeforeSave: false });
-
-    await sendVerificationEmail(
-      user.email,
-      user.username,
-      reVerificationToken,
-    );
-
-    return res.status(200).json({
-      success: true,
-      message: "Verification email sent",
-    });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: "Could not send verification email",
-    });
-  }
 };
 
 const loginController = async (req, res) => {
@@ -306,38 +311,82 @@ const loginController = async (req, res) => {
     };
 };
 const getMeController = async (req, res) => {
-  try {
-    const user = await userModel.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+    try {
+        const user = await userModel.findById(req.user.id);
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+        return res.status(200).json({
+            success: true,
+            data: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                isEmailVerified: user.isEmailVerified,
+                profilePicture: user.profilePicture,
+                address: user.address,
+                phone: user.phone,
+                gender: user.gender,
+                dob: user.dob,
+                role: user.role,
+            },
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: "Could not fetch profile",
+        });
     }
-    return res.status(200).json({
-      success: true,
-      data: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        isEmailVerified: user.isEmailVerified,
-        profilePicture: user.profilePicture,
-        address: user.address,
-        phone: user.phone,
-        gender: user.gender,
-        dob: user.dob,
-        role: user.role,
-      },
-    });
-  } catch (error) {
-     console.error(error);
-    return res.status(500).json({
-      success: false,
-      message: "Could not fetch profile",
-    });
-  }
 };
+const updateProfileController = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const updateData = {
+            ...req.body
+        };
+        if (req.file) {
+            updateData.profilePicture = req.file.path;
+        };
 
+        const user = await userModel.findByIdAndUpdate(userId, updateData, {
+            returnDocument: 'after',
+            runValidators: true
+        });
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Profile updated successfully",
+            data: {
+                id: user._id,
+                username: user.username,
+                email: user.email,
+                isEmailVerified: user.isEmailVerified,
+                profilePicture: user.profilePicture,
+                address: user.address,
+                phone: user.phone,
+                gender: user.gender,
+                dob: user.dob,
+                role: user.role,
+            },
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: "Could not update profile",
+        });
+    }
+};
 
 const imageUpload = async (req, res) => {
     console.log(req.file);
@@ -364,5 +413,6 @@ module.exports = {
     reVerificationController,
     loginController,
     getMeController,
+    updateProfileController,
     imageUpload
 };
