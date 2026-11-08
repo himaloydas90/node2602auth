@@ -21,14 +21,21 @@ const getAllUserController = async (req, res) => {
   try {
     const loggedinUserId = req.user.id
     const loggedinUser = await userModel.findById(loggedinUserId)
-    const users = await userModel.find({
-      _id: {
-        $ne: loggedinUserId
-      }
-    })
+    const searchQuery = req.query.search ? req.query.search.trim() : '';
+    const filter = {
+      _id: {$ne: loggedinUserId}
+    }
+    if (searchQuery){
+      const searchRegex = searchQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+      filter.$or = [
+        { username: { $regex: searchRegex, $options: 'i' } },
+        { email: { $regex: searchRegex, $options: 'i' } }
+      ];
+    }
+    const users = await userModel.find(filter)
     res.status(200).json({
       success: true,
-      message: "Users get successfully",
+      message: "Users fetched successfully",
       data: {
         users: users.map(formatUser),
         length: users.length
