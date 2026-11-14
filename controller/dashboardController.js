@@ -22,23 +22,59 @@ const getAllUserController = async (req, res) => {
     const loggedinUserId = req.user.id
     const loggedinUser = await userModel.findById(loggedinUserId)
     const searchQuery = req.query.search ? req.query.search.trim() : '';
-    const filter = {
-      _id: {$ne: loggedinUserId}
+    const roleQuery = req.query.role ? req.query.role.trim() : '';
+    const limit = 4
+    const page = req.query.page === undefined ? 1 : Number(req.query.page)
+    if (!Number.isInteger(page) || page < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "Page must be a positive integer",
+      })
     }
-    if (searchQuery){
+    const filter = {
+      _id: {
+        $ne: loggedinUserId
+      }
+    }
+    if (roleQuery) {
+      filter.role = roleQuery;
+    }
+    if (searchQuery) {
       const searchRegex = searchQuery.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-      filter.$or = [
-        { username: { $regex: searchRegex, $options: 'i' } },
-        { email: { $regex: searchRegex, $options: 'i' } }
+      filter.$or = [{
+          username: {
+            $regex: searchRegex,
+            $options: 'i'
+          }
+        },
+        {
+          email: {
+            $regex: searchRegex,
+            $options: 'i'
+          }
+        }
       ];
     }
-    const users = await userModel.find(filter)
+    const [users, totalUsers] = await Promise.all([
+      userModel.find(filter).skip((page - 1) * limit).limit(limit),
+      userModel.countDocuments(filter),
+    ])
+
+    if (!users || users.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No users found"
+      });
+    }
     res.status(200).json({
       success: true,
       message: "Users fetched successfully",
       data: {
         users: users.map(formatUser),
-        length: users.length
+        length: users.length,
+        page,
+        limit,
+        totalPages: Math.ceil(totalUsers / limit),
       },
       loggedinuser: loggedinUser
     })

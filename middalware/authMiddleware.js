@@ -43,17 +43,17 @@ const requiedAdmin = (req, res, next) => {
   }
   next()
 };
-// const isEmailVerified = (req, res, next) => {
-//   if(!req.user.isEmailVerified){
-//     return res.status(403).json({
-//       success: false,
-//       message: "Please Verify your email first."
-//     })
-//   }
-//   next()
-// };
+const isEmailVerified = (req, res, next) => {
+  if(!req.user.isEmailVerified){
+    return res.status(403).json({
+      success: false,
+      message: "Please Verify your email first."
+    })
+  }
+  next()
+};
 
 module.exports = { 
   protect,
-  // isEmailVerified,
+  isEmailVerified,
   requiedAdmin };
